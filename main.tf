@@ -1,53 +1,60 @@
 provider "aws" {
   region = "eu-central-1"
-  access_key = "AKIAQZVYKKFQXZGM3EWY"
-  secret_key = "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"
 }
 
-variable "subnet_cidr_block" {
-  description = "subnet subnet block"
-}
+variable vpc_cidr_block {}
+variable subnet_cidr_block {}
+variable avail_zone {}
+variable env_prefix {}
 
-variable "vpc_cidr_block" {
-  description = "vpc subnet block"
-  type = string
-}
-
-resource "aws_vpc" "development-vpc" {
+resource "aws_vpc" "myapp-vpc" {
   cidr_block = var.vpc_cidr_block
-  #cidr_block = var.subnet_cidr_block
   tags = {
-    Name = "terraform"
+    Name = "${var.env_prefix}-vpc"
   }
 }
 
-resource "aws_subnet" "dev-subnet-1" {
-  vpc_id = aws_vpc.development-vpc.id
+resource "aws_subnet" "myapp-subnet-1" {
+  vpc_id = aws_vpc.myapp-vpc.id
   cidr_block = var.subnet_cidr_block
-  availability_zone = "eu-central-1a"
+  availability_zone = var.avail_zone
   tags = {
-    Name = "terraform"
+    Name = "${var.env_prefix}-subnet-1"
   }
 }
 
-data "aws_vpc" "existing_vpc" {
-  default = true
+resource "aws_internet_gateway" "myapp_igw" {
+  vpc_id = aws_vpc.myapp-vpc.id
+  tags = {
+    Name = "${var.env_prefix}-igw"
+  }  
 }
+/*
+resource "aws_route_table" "myapp-route-table" {
+  vpc_id = aws_vpc.myapp-vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.myapp_igw.id
+  }  
+  tags = {
+    Name = "${var.env_prefix}-rtb"
+  }  
+ }
+ */
+/*
+ resource "aws_route_table_association" "a-rtb-subnet" {
+   subnet_id = aws_subnet.myapp-subnet-1.id
+   route_table_id = aws_route_table.myapp-route-table.id
+ }
+ */
 
-resource "aws_subnet" "dev-subnet-2" {
-  vpc_id = data.aws_vpc.existing_vpc.id
-  cidr_block = "172.31.48.0/20"
-  availability_zone = "eu-central-1a"
-}
-
-output "vpc-id" {
-  value = aws_vpc.development-vpc.id
-}
-
-output "subnet1-id" {
-  value = aws_subnet.dev-subnet-1.id
-}
-
-output "subnet2-id" {
-  value = aws_subnet.dev-subnet-2.id
+resource "aws_default_route_table" "main-rtb" {
+  default_route_table_id = aws_vpc.myapp-vpc.default_route_table_id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.myapp_igw.id
+  } 
+  tags = {
+    Name = "${var.env_prefix}-main-rtb"
+  }  
 }
